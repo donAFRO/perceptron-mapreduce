@@ -1,14 +1,12 @@
 import java.util.Scanner;
 import java.io.*;
 
-import javax.swing.JFileChooser;
-
-public class Perceptron {
+public class Train {
 
     public final int CHARS = 95;
     private Letter[] templates;
     
-    public Perceptron() {
+    public Train() {
         templates = new Letter[CHARS];
         for (int i = 0; i < CHARS; i++) {
             templates[i] = Letter.getNewBlankLetter((char)(i + 32));
@@ -98,64 +96,14 @@ public class Perceptron {
             i.printStackTrace();
         }
     }
-    
-    public void readTemplates(String filename) {
-        try {
-            FileInputStream fileIn = new FileInputStream(filename);
-            ObjectInputStream in = new ObjectInputStream(fileIn);
-            templates = (Letter[]) in.readObject();
-            in.close();
-            fileIn.close();
-        } catch(IOException i) {
-            i.printStackTrace();
-            return;
-        } catch(ClassNotFoundException c) {
-            System.out.println("Letter[] class not found");
-            c.printStackTrace();
-            return;
-        }
-    }
-    
-    public void recognizeCharacters(String filename) {
-        StringBuffer output = new StringBuffer();
-        FileReader file = null;
-        try {
-            file = new FileReader(filename);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        Scanner scan = new Scanner(file);
-        while (scan.hasNext()) {
-            String line = scan.nextLine();
-            Letter pattern = Letter.getNewLetterFromRecognitionPatternString(line);
-            int guess = guess(pattern);     
-            output.append(templates[guess].getLetter());
-        }
-        scan.close();
-        int start = 0;
-        int end = 70;
-        while (end < output.length()) {
-            System.out.println(output.substring(start, end));
-            start = end;
-            end = end + 70;
-        }
-        System.out.println(output.substring(start, output.length()));  
-    }
-    
+     
     public static void main(String[] args) {
-        Perceptron p = new Perceptron();
+        String trainingFilename = args[0];
+        String templateFilename = args[1];
         
-        JFileChooser chooser = new JFileChooser();
-        chooser.showOpenDialog(null);
-        String filename = chooser.getSelectedFile().getAbsolutePath();
-
-        p.trainTemplates(filename);
-        p.writeTemplates("templates.ser");
+        Train t = new Train();
         
-        p.readTemplates("templates.ser");
-        chooser.showOpenDialog(null);
-        filename = chooser.getSelectedFile().getAbsolutePath();
-        
-        p.recognizeCharacters(filename);
+        t.trainTemplates(trainingFilename);
+        t.writeTemplates(templateFilename);
     }
 }
