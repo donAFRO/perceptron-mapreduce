@@ -85,6 +85,37 @@ public class Perceptron {
         }
     }
     
+    public void writeTemplates(String filename) {
+        try {
+            FileOutputStream fileOut =
+                    new FileOutputStream(filename);
+            ObjectOutputStream out = new ObjectOutputStream(fileOut);
+            out.writeObject(templates);
+            out.close();
+            fileOut.close();
+            System.out.println("Serialized data is saved in " + filename);
+        } catch(IOException i) {
+            i.printStackTrace();
+        }
+    }
+    
+    public void readTemplates(String filename) {
+        try {
+            FileInputStream fileIn = new FileInputStream(filename);
+            ObjectInputStream in = new ObjectInputStream(fileIn);
+            templates = (Letter[]) in.readObject();
+            in.close();
+            fileIn.close();
+        } catch(IOException i) {
+            i.printStackTrace();
+            return;
+        } catch(ClassNotFoundException c) {
+            System.out.println("Letter[] class not found");
+            c.printStackTrace();
+            return;
+        }
+    }
+    
     public void recognizeCharacters(String filename) {
         StringBuffer output = new StringBuffer();
         FileReader file = null;
@@ -119,7 +150,9 @@ public class Perceptron {
         String filename = chooser.getSelectedFile().getAbsolutePath();
 
         p.trainTemplates(filename);
+        p.writeTemplates("templates.ser");
         
+        p.readTemplates("templates.ser");
         chooser.showOpenDialog(null);
         filename = chooser.getSelectedFile().getAbsolutePath();
         

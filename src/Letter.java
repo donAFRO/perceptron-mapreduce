@@ -1,5 +1,5 @@
 
-public class Letter {
+public class Letter implements java.io.Serializable {
     
     public static final int SIZE = 35;
     private int[] bits;
