@@ -1,58 +1,90 @@
 import java.util.Scanner;
+import java.util.StringTokenizer;
 import java.io.*;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.Mapper.Context;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.util.GenericOptionsParser;
+
 public class Recognize extends Perceptron {
-        
-    public void readTemplates(String filename) {
-        try {
-            FileInputStream fileIn = new FileInputStream(filename);
-            ObjectInputStream in = new ObjectInputStream(fileIn);
-            templates = (Letter[]) in.readObject();
-            in.close();
-            fileIn.close();
-        } catch(IOException i) {
-            i.printStackTrace();
-            return;
-        } catch(ClassNotFoundException c) {
-            System.out.println("Letter[] class not found");
-            c.printStackTrace();
-            return;
-        }
-    }
-    
-    public void recognizeCharacters(String filename) {
-        StringBuffer output = new StringBuffer();
-        FileReader file = null;
-        try {
-            file = new FileReader(filename);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        Scanner scan = new Scanner(file);
-        while (scan.hasNext()) {
-            String line = scan.nextLine();
-            Letter pattern = Letter.getNewLetterFromRecognitionPatternString(line);
-            int guess = guess(pattern);     
-            output.append(templates[guess].getLetter());
-        }
-        scan.close();
-        int start = 0;
-        int end = 70;
-        while (end < output.length()) {
-            System.out.println(output.substring(start, end));
-            start = end;
-            end = end + 70;
-        }
-        System.out.println(output.substring(start, output.length()));  
-    }
-    
+
+    private static String templateFilename;
+    // replace with configuration variable in context.
+
+        public static class RecognizerMapper
+	    extends Mapper<Object, Text, IntWritable, Text> {
+
+	    private Text letter = new Text();
+
+	    public void setup(Context context) {
+		try {
+		    FileInputStream fileIn = new FileInputStream(templateFilename);
+		    ObjectInputStream in = new ObjectInputStream(fileIn);
+		    templates = (Letter[]) in.readObject();
+		    in.close();
+		    fileIn.close();
+		} catch(IOException i) {
+		    i.printStackTrace();
+		    return;
+		} catch(ClassNotFoundException c) {
+		    System.out.println("Letter[] class not found");
+		    c.printStackTrace();
+		    return;
+		}
+	    }
+
+	    public void map(Object key, Text value, Context context)
+		throws IOException, InterruptedException {
+
+		String line = value.toString();
+		Letter pattern = Letter.getNewLetterFromRecognitionPatternString(line);
+		int guess = guess(pattern);
+		letter.set(templates[guess].getLetter());
+		int offset = Integer.parseInt(line.substring(SIZE, line.length()));
+		context.write(new IntWritable(offset), letter);
+	    }
+	}
+
+        public static class RecognizerReducer
+	    extends Reducer<IntWritable, Text, IntWritable, Text> {
+
+	    public void reduce(IntWritable key, Iterable<Text> values,
+			                       Context context
+			       ) throws IOException, InterruptedException {
+		for (Text val : values) {
+		    context.write(val);
+		}
+	    }
+	}
+
     public static void main(String[] args) {
-        String recognitionFilename = args[0];
-        String templateFilename = args[1];
-        
-        Recognize r = new Recognize();
-        
-        r.readTemplates(templateFilename);
-        r.recognizeCharacters(recognitionFilename);
+	Configuration conf = new Configuration();
+	String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
+	if (otherArgs.length < 3) {
+	    System.err.println("Usage: Recognize <in> <templates> <out>");
+	    System.exit(2);
+	}
+
+	Job job = new Job(conf, "perceptron recognize");
+	job.setJarByClass(Perceptron.class);
+	job.setMapperClass(RecognizerMapper.class);
+	job.setReducerClass(RecognizerReducer.class);
+	job.setOutputKeyClass(Text.class);
+	job.setOutputValueClass(IntWritable.class);
+
+	FileInputFormat.addInputPath(job, new Path(otherArgs[0]));
+	templateFilename = otherArgs[1];
+	FileOutputFormat.setOutputPath(job,
+				       new Path(otherArgs[otherArgs.length - 1]));
+
+	System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
 }
